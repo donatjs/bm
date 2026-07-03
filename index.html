@@ -136,6 +136,10 @@
         <button class="btn-outline" id="btnExportCsv">⬇ Export CSV</button>
         <button class="btn-outline" id="btnClear">🗑 Kosongkan Tabel</button>
       </div>
+      <label style="margin-top:12px;">Nomor WhatsApp tujuan (opsional, format 62xxx — kosongkan untuk pilih kontak sendiri)</label>
+      <input type="tel" id="waNumber" placeholder="Contoh: 6281234567890" style="width:100%;padding:8px;border-radius:6px;border:1px solid #D8DEEA;">
+      <button class="btn-gold" id="btnSendWa" style="margin-top:8px;">📤 Kirim CSV via WhatsApp</button>
+      <div class="status" id="waStatus"></div>
       <div style="max-height:340px;overflow:auto;margin-top:10px;">
         <table id="resultsTable">
           <thead>
@@ -352,19 +356,69 @@ $("btnClear").addEventListener("click", () => {
   }
 });
 
-$("btnExportCsv").addEventListener("click", () => {
+function buildCsvText() {
   const header = ["Lighting (lux)","Pose Angle","Device Tier","Precision","Recall","F1-Score","Latency (ms)","FPS","Memory (MB)"];
   const lines = [header.join(",")];
   rows.forEach(r => {
     lines.push([r.lighting, r.pose, r.device, r.precision, r.recall, r.f1, r.latency, r.fps, r.memory].join(","));
   });
-  const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+  return lines.join("\n");
+}
+
+const CSV_FILENAME = "ICEMIES2026_hasil_36skenario.csv";
+
+function downloadCsvFile() {
+  const blob = new Blob([buildCsvText()], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "ICEMIES2026_hasil_36skenario.csv";
+  a.download = CSV_FILENAME;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+$("btnExportCsv").addEventListener("click", () => {
+  if (rows.length === 0) { alert("Belum ada hasil untuk diexport."); return; }
+  downloadCsvFile();
+});
+
+$("btnSendWa").addEventListener("click", async () => {
+  if (rows.length === 0) { alert("Belum ada hasil untuk dikirim."); return; }
+
+  const waStatus = $("waStatus");
+  const rawNumber = $("waNumber").value.trim().replace(/[^0-9]/g, "");
+  const csvText = buildCsvText();
+  const summary = `ICEMIES 2026 - Hasil Benchmark Deteksi Wajah\n${rows.length} skenario terekam.\n(File CSV terlampir / lihat unduhan terbaru)`;
+
+  // Coba kirim langsung sebagai file terlampir (butuh HTTPS + Web Share API level 2,
+  // biasanya berjalan di Chrome/Android; sebagian besar browser desktop tidak mendukung ini).
+  try {
+    const file = new File([csvText], CSV_FILENAME, { type: "text/csv" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: "Hasil Benchmark ICEMIES 2026",
+        text: summary,
+      });
+      waStatus.textContent = "Dibagikan lewat menu Share — pilih WhatsApp pada daftar aplikasi.";
+      waStatus.classList.add("active");
+      return;
+    }
+  } catch (e) {
+    if (e.name === "AbortError") { return; } // user cancelled the share sheet
+    // fall through to fallback below
+  }
+
+  // Fallback (umumnya di desktop): unduh CSV dulu, lalu buka chat WhatsApp
+  // dengan teks siap kirim. File CSV yang baru diunduh tinggal dilampirkan manual.
+  downloadCsvFile();
+  const text = encodeURIComponent(
+    `${summary}\n\nCatatan: file CSV baru saja terunduh di perangkat ini (${CSV_FILENAME}). Silakan lampirkan file tersebut secara manual pada chat WhatsApp ini.`
+  );
+  const base = rawNumber ? `https://wa.me/${rawNumber}` : `https://wa.me/`;
+  window.open(`${base}?text=${text}`, "_blank");
+  waStatus.textContent = "CSV terunduh & WhatsApp dibuka — lampirkan file CSV secara manual pada chat.";
+  waStatus.classList.add("active");
 });
 </script>
 </body>
