@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>ICEMIES 2026 — Benchmark Logger (36 Skenario Deteksi Wajah)</title>
+<style>
+  :root{
+    --navy:#0A2A5E; --navy-dark:#071D42; --gold:#E8AE45;
+    --ink:#1B2440; --muted:#5B657A; --card:#F4F6FB; --ok:#1E8E5A; --bad:#C0392B;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#F7F8FC;color:var(--ink);}
+  header{background:var(--navy);color:#fff;padding:18px 24px;}
+  header h1{margin:0;font-size:19px;}
+  header p{margin:4px 0 0;font-size:12.5px;color:#C9D3EC;}
+  .wrap{max-width:1180px;margin:0 auto;padding:20px;display:grid;grid-template-columns:380px 1fr;gap:18px;}
+  @media (max-width:900px){.wrap{grid-template-columns:1fr;}}
+  .card{background:#fff;border-radius:10px;padding:16px;box-shadow:0 2px 10px rgba(27,36,64,.08);margin-bottom:16px;}
+  .card h2{font-size:14px;margin:0 0 10px;color:var(--navy);text-transform:uppercase;letter-spacing:.4px;}
+  label{display:block;font-size:12.5px;color:var(--muted);margin:10px 0 4px;}
+  select,button,input{font-family:inherit;font-size:13.5px;}
+  select{width:100%;padding:8px;border-radius:6px;border:1px solid #D8DEEA;background:#fff;}
+  button{cursor:pointer;border:none;border-radius:7px;padding:10px 14px;font-weight:600;}
+  .btn-primary{background:var(--navy);color:#fff;width:100%;margin-top:12px;}
+  .btn-primary:disabled{background:#9AA6C4;cursor:not-allowed;}
+  .btn-gold{background:var(--gold);color:var(--navy-dark);width:100%;margin-top:8px;}
+  .btn-gold:disabled{background:#EFD9A6;color:#9c8a55;cursor:not-allowed;}
+  .btn-outline{background:#fff;border:1px solid #D8DEEA;color:var(--ink);width:100%;margin-top:8px;}
+  .btn-danger{background:var(--bad);color:#fff;}
+  video{width:100%;border-radius:8px;background:#000;display:block;}
+  canvas.overlay{position:absolute;top:0;left:0;width:100%;height:100%;}
+  .video-box{position:relative;}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px;}
+  .stat{background:var(--card);border-radius:8px;padding:10px;text-align:center;}
+  .stat .v{font-size:19px;font-weight:700;color:var(--navy);}
+  .stat .l{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;}
+  .flag-row{display:flex;gap:8px;margin-top:8px;}
+  .flag-row button{flex:1;}
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  th,td{padding:7px 8px;text-align:center;border-bottom:1px solid #ECEFF6;}
+  th{background:var(--navy);color:#fff;font-weight:600;position:sticky;top:0;}
+  tr:nth-child(even) td{background:#FAFBFE;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:10.5px;font-weight:700;}
+  .badge.ok{background:#E5F5EC;color:var(--ok);}
+  .badge.warn{background:#FDF1E3;color:#B9791F;}
+  .note{font-size:12px;color:var(--muted);line-height:1.5;background:#FFF8E6;border:1px solid #F0DBA0;border-radius:8px;padding:10px 12px;margin-top:10px;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .status{font-size:12px;margin-top:8px;color:var(--muted);}
+  .status.active{color:var(--ok);font-weight:700;}
+  code{background:#EEF1F9;padding:1px 5px;border-radius:4px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Benchmark Logger — Web-Based Face Detection (OpenCV.js / MediaPipe FaceLandmarker)</h1>
+  <p>ICEMIES 2026 · Wawan Sismadi, Universitas IPWIJA · Desain faktorial 3 cahaya × 4 pose × 3 device = 36 skenario</p>
+</header>
+
+<div class="wrap">
+  <!-- LEFT: controls -->
+  <div>
+    <div class="card">
+      <h2>1. Kondisi Skenario</h2>
+      <label>Device Tier (pilih sesuai perangkat yang sedang dipakai)</label>
+      <select id="deviceTier">
+        <option value="Low-end">Low-end</option>
+        <option value="Mid-range">Mid-range</option>
+        <option value="High-end">High-end</option>
+      </select>
+
+      <label>Lighting (ukur pakai lux meter / app lux meter di HP, lalu pilih terdekat)</label>
+      <select id="lighting">
+        <option value="100">100 lux</option>
+        <option value="300">300 lux</option>
+        <option value="500">500 lux</option>
+      </select>
+
+      <label>Pose Angle (posisikan wajah sesuai sudut ini)</label>
+      <select id="pose">
+        <option value="0">0°</option>
+        <option value="15">15°</option>
+        <option value="30">30°</option>
+        <option value="45">45°</option>
+      </select>
+
+      <label>Durasi pengujian per skenario (detik)</label>
+      <select id="duration">
+        <option value="10">10 detik (cepat)</option>
+        <option value="15" selected>15 detik (disarankan)</option>
+        <option value="20">20 detik</option>
+        <option value="30">30 detik (lebih presisi)</option>
+      </select>
+    </div>
+
+    <div class="card">
+      <h2>2. Kamera & Model</h2>
+      <button class="btn-primary" id="btnCam">Aktifkan Kamera</button>
+      <div class="status" id="camStatus">Kamera belum aktif.</div>
+      <button class="btn-outline" id="btnModel" disabled>Muat Model FaceLandmarker</button>
+      <div class="status" id="modelStatus">Model belum dimuat.</div>
+    </div>
+
+    <div class="card">
+      <h2>3. Jalankan Skenario</h2>
+      <button class="btn-gold" id="btnRun" disabled>▶ Mulai Uji (Skenario Ini)</button>
+      <div class="status" id="runStatus"></div>
+      <div class="flag-row">
+        <button class="btn-danger" id="btnFP" disabled>⚠ Tandai Deteksi Salah (False Positive)</button>
+      </div>
+      <div class="note">Selama uji berjalan: pertahankan wajah tetap berada di frame sesuai sudut pose yang dipilih. Klik tombol "Tandai Deteksi Salah" hanya jika sistem menampilkan landmark yang jelas-jelas keliru (mis. menempel di background, bukan di wajah).</div>
+    </div>
+
+    <div class="card">
+      <h2>4. Mode Otomatis (36 Skenario Berurutan)</h2>
+      <div class="note" style="margin-top:0;">Menjalankan otomatis seluruh <b>36 kombinasi</b> (3 Device × 3 Lighting × 4 Pose) satu per satu tanpa perlu klik ulang. Begitu satu skenario selesai, sistem otomatis mengisi kombinasi berikutnya dan langsung menguji. Anda hanya perlu: (1) menyesuaikan pencahayaan ruangan, (2) reposisi sudut wajah sesuai instruksi di layar, dan (3) mengganti perangkat fisik saat diminta (tiap 12 skenario) lalu klik tombol konfirmasi.</div>
+      <label>Jeda persiapan antar skenario (untuk reposisi wajah/pose)</label>
+      <select id="autoPrep">
+        <option value="5">5 detik</option>
+        <option value="8" selected>8 detik</option>
+        <option value="12">12 detik</option>
+      </select>
+      <button class="btn-primary" id="btnAutoStart" disabled>▶▶ Mulai Otomatis (36 Skenario)</button>
+      <button class="btn-outline" id="btnAutoStop" disabled>⏹ Hentikan Mode Otomatis</button>
+      <button class="btn-gold" id="btnDeviceReady" style="display:none;">✅ Perangkat Sudah Siap, Lanjutkan</button>
+      <div class="status" id="autoStatus"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT: video + results -->
+  <div>
+    <div class="card">
+      <h2>Live Preview</h2>
+      <div class="video-box">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="overlay" class="overlay"></canvas>
+      </div>
+      <div class="stat-grid">
+        <div class="stat"><div class="v" id="statLatency">–</div><div class="l">Latency avg (ms)</div></div>
+        <div class="stat"><div class="v" id="statFps">–</div><div class="l">FPS</div></div>
+        <div class="stat"><div class="v" id="statMem">–</div><div class="l">Memory (MB)</div></div>
+        <div class="stat"><div class="v" id="statFrames">–</div><div class="l">Frames / Detected</div></div>
+        <div class="stat"><div class="v" id="statPrecision">–</div><div class="l">Precision</div></div>
+        <div class="stat"><div class="v" id="statRecall">–</div><div class="l">Recall</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Hasil Terekam (Tabel 2 — siap export)</h2>
+      <div class="row2">
+        <button class="btn-outline" id="btnExportCsv">⬇ Export CSV</button>
+        <button class="btn-outline" id="btnClear">🗑 Kosongkan Tabel</button>
+      </div>
+      <label style="margin-top:12px;">Nomor WhatsApp tujuan (opsional, format 62xxx — kosongkan untuk pilih kontak sendiri)</label>
+      <input type="tel" id="waNumber" placeholder="Contoh: 6281234567890" style="width:100%;padding:8px;border-radius:6px;border:1px solid #D8DEEA;">
+      <button class="btn-gold" id="btnSendWa" style="margin-top:8px;">📤 Kirim CSV via WhatsApp</button>
+      <div class="status" id="waStatus"></div>
+      <div style="max-height:340px;overflow:auto;margin-top:10px;">
+        <table id="resultsTable">
+          <thead>
+            <tr>
+              <th>Lighting</th><th>Pose</th><th>Device</th>
+              <th>Precision</th><th>Recall</th><th>F1</th>
+              <th>Latency (ms)</th><th>FPS</th><th>Memory (MB)</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+
+const $ = (id) => document.getElementById(id);
+const video = $("video");
+const overlay = $("overlay");
+const ctx = overlay.getContext("2d");
+
+let stream = null;
+let faceLandmarker = null;
+let running = false;
+let rafId = null;
+
+// per-run counters
+let run = null;
+
+$("btnCam").addEventListener("click", async () => {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+    video.srcObject = stream;
+    await video.play();
+    overlay.width = video.videoWidth || 640;
+    overlay.height = video.videoHeight || 480;
+    $("camStatus").textContent = "Kamera aktif.";
+    $("camStatus").classList.add("active");
+    $("btnModel").disabled = false;
+  } catch (e) {
+    $("camStatus").textContent = "Gagal mengakses kamera: " + e.message + " (Catatan: jika file dibuka langsung dari disk, jalankan lewat local server, mis. `python3 -m http.server`, lalu buka http://localhost:8000/)";
+  }
+});
+
+$("btnModel").addEventListener("click", async () => {
+  $("modelStatus").textContent = "Memuat model dari CDN... (butuh koneksi internet)";
+  try {
+    const vision = await FilesetResolver.forVisionTasks(
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+    );
+    faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+        delegate: "GPU",
+      },
+      outputFaceBlendshapes: false,
+      runningMode: "VIDEO",
+      numFaces: 1,
+    });
+    $("modelStatus").textContent = "Model siap (GPU/WebGL).";
+    $("modelStatus").classList.add("active");
+    $("btnRun").disabled = false;
+    $("btnAutoStart").disabled = false;
+  } catch (e) {
+    $("modelStatus").textContent = "Gagal memuat model: " + e.message;
+  }
+});
+
+$("btnRun").addEventListener("click", () => {
+  if (running || autoState.active) return;
+  startRun();
+});
+
+$("btnFP").addEventListener("click", () => {
+  if (run) run.falsePositives++;
+});
+
+// ---------- Mode Otomatis ----------
+const DEVICE_VALUES = ["Low-end", "Mid-range", "High-end"];
+const LIGHTING_VALUES = ["100", "300", "500"];
+const POSE_VALUES = ["0", "15", "30", "45"];
+
+const autoState = {
+  active: false,
+  queue: [],
+  index: 0,
+  prepTimer: null,
+};
+
+function buildAutoQueue() {
+  // Device sebagai loop terluar (perlu ganti perangkat fisik — paling jarang berubah),
+  // Lighting sebagai loop tengah, Pose sebagai loop dalam (berubah tiap skenario).
+  // Total: 3 device x 3 lighting x 4 pose = 36 skenario.
+  const q = [];
+  for (const device of DEVICE_VALUES) {
+    for (const lighting of LIGHTING_VALUES) {
+      for (const pose of POSE_VALUES) {
+        q.push({ device, lighting, pose });
+      }
+    }
+  }
+  return q;
+}
+
+function setAutoControlsLocked(locked) {
+  $("lighting").disabled = locked;
+  $("pose").disabled = locked;
+  $("deviceTier").disabled = locked;
+  $("btnRun").disabled = locked || !faceLandmarker;
+  $("btnAutoStart").disabled = locked || !faceLandmarker;
+  $("btnAutoStop").disabled = !locked;
+}
+
+$("btnAutoStart").addEventListener("click", () => {
+  if (running || autoState.active) return;
+  if (!faceLandmarker) { alert("Muat model FaceLandmarker terlebih dahulu."); return; }
+  autoState.active = true;
+  autoState.queue = buildAutoQueue();
+  autoState.index = 0;
+  setAutoControlsLocked(true);
+  $("autoStatus").textContent = `Mode otomatis dimulai — total ${autoState.queue.length} skenario.`;
+  $("autoStatus").classList.add("active");
+  runNextAutoStep();
+});
+
+$("btnAutoStop").addEventListener("click", () => {
+  stopAutoMode("Mode otomatis dihentikan oleh pengguna.");
+});
+
+function stopAutoMode(message) {
+  autoState.active = false;
+  if (autoState.prepTimer) { clearInterval(autoState.prepTimer); autoState.prepTimer = null; }
+  $("btnDeviceReady").style.display = "none";
+  setAutoControlsLocked(false);
+  if (message) {
+    $("autoStatus").textContent = message;
+    $("autoStatus").classList.remove("active");
+  }
+}
+
+function runNextAutoStep() {
+  if (!autoState.active) return;
+
+  if (autoState.index >= autoState.queue.length) {
+    stopAutoMode(`Selesai! Semua ${autoState.queue.length} skenario berhasil direkam. Silakan Export CSV atau Kirim via WhatsApp.`);
+    return;
+  }
+
+  const next = autoState.queue[autoState.index];
+  const prevDevice = autoState.index > 0 ? autoState.queue[autoState.index - 1].device : null;
+  const deviceChanged = next.device !== prevDevice;
+
+  $("deviceTier").value = next.device;
+  $("lighting").value = next.lighting;
+  $("pose").value = next.pose;
+
+  const scenarioNo = autoState.index + 1;
+  const total = autoState.queue.length;
+
+  if (deviceChanged) {
+    $("autoStatus").textContent = `Skenario ${scenarioNo}/${total} — Ganti perangkat fisik ke "${next.device}". Setelah siap, klik tombol di bawah untuk lanjut.`;
+    $("autoStatus").classList.add("active");
+    $("btnDeviceReady").style.display = "block";
+    $("btnDeviceReady").onclick = () => {
+      $("btnDeviceReady").style.display = "none";
+      startAutoPrepCountdown(next, scenarioNo, total);
+    };
+    return;
+  }
+
+  startAutoPrepCountdown(next, scenarioNo, total);
+}
+
+function startAutoPrepCountdown(next, scenarioNo, total) {
+  const prepSec = Number($("autoPrep").value);
+  let remaining = prepSec;
+
+  const updatePrepText = () => {
+    $("autoStatus").textContent = `Bersiap skenario ${scenarioNo}/${total} — Device ${next.device}, Lighting ${next.lighting} lux, Pose ${next.pose}° — mulai otomatis dalam ${remaining} detik...`;
+    $("autoStatus").classList.add("active");
+  };
+  updatePrepText();
+
+  autoState.prepTimer = setInterval(() => {
+    remaining--;
+    if (remaining <= 0) {
+      clearInterval(autoState.prepTimer);
+      autoState.prepTimer = null;
+      if (!autoState.active) return;
+      $("autoStatus").textContent = `Menguji skenario ${scenarioNo}/${total} — Device ${next.device}, Lighting ${next.lighting} lux, Pose ${next.pose}°...`;
+      startRun();
+    } else {
+      updatePrepText();
+    }
+  }, 1000);
+}
+
+function startRun() {
+  const durationSec = Number($("duration").value);
+  run = {
+    lighting: $("lighting").value,
+    pose: $("pose").value,
+    device: $("deviceTier").value,
+    frames: 0,
+    detected: 0,
+    falsePositives: 0,
+    latencySum: 0,
+    confidenceSum: 0,
+    memSamples: [],
+    startTime: performance.now(),
+    durationMs: durationSec * 1000,
+  };
+  running = true;
+  $("btnRun").disabled = true;
+  $("btnFP").disabled = false;
+  $("runStatus").textContent = `Menguji... (${durationSec} detik)`;
+  $("runStatus").classList.add("active");
+  loop();
+}
+
+function loop() {
+  if (!running) return;
+  const now = performance.now();
+  const t0 = performance.now();
+  const result = faceLandmarker.detectForVideo(video, now);
+  const t1 = performance.now();
+
+  run.frames++;
+  run.latencySum += (t1 - t0);
+
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+  if (result.faceLandmarks && result.faceLandmarks.length > 0) {
+    run.detected++;
+    // simple confidence proxy: landmarks found = 1.0, else 0
+    run.confidenceSum += 1;
+    drawLandmarks(result.faceLandmarks[0]);
+  }
+  if (performance.memory) {
+    run.memSamples.push(performance.memory.usedJSHeapSize / (1024 * 1024));
+  }
+
+  // live stats
+  const elapsed = now - run.startTime;
+  const fps = run.frames / (elapsed / 1000);
+  const precision = run.detected + run.falsePositives > 0 ? run.detected / (run.detected + run.falsePositives) : 0;
+  const recall = run.frames > 0 ? run.detected / run.frames : 0;
+  $("statLatency").textContent = (run.latencySum / run.frames).toFixed(1);
+  $("statFps").textContent = fps.toFixed(1);
+  $("statMem").textContent = run.memSamples.length ? (run.memSamples.reduce((a,b)=>a+b,0)/run.memSamples.length).toFixed(1) : "N/A";
+  $("statFrames").textContent = `${run.frames} / ${run.detected}`;
+  $("statPrecision").textContent = (precision * 100).toFixed(1) + "%";
+  $("statRecall").textContent = (recall * 100).toFixed(1) + "%";
+
+  if (elapsed >= run.durationMs) {
+    finishRun();
+    return;
+  }
+  rafId = requestAnimationFrame(loop);
+}
+
+function drawLandmarks(landmarks) {
+  ctx.fillStyle = "#E8AE45";
+  for (const lm of landmarks) {
+    const x = lm.x * overlay.width;
+    const y = lm.y * overlay.height;
+    ctx.beginPath();
+    ctx.arc(x, y, 1.2, 0, 2 * Math.PI);
+    ctx.fill();
+  }
+}
+
+function finishRun() {
+  running = false;
+  cancelAnimationFrame(rafId);
+  $("btnRun").disabled = autoState.active || !faceLandmarker;
+  $("btnFP").disabled = true;
+  $("runStatus").textContent = "Skenario selesai — hasil ditambahkan ke tabel di bawah.";
+  $("runStatus").classList.remove("active");
+
+  const precision = run.detected + run.falsePositives > 0 ? run.detected / (run.detected + run.falsePositives) : 0;
+  const recall = run.frames > 0 ? run.detected / run.frames : 0;
+  const f1 = (precision + recall) > 0 ? (2 * precision * recall) / (precision + recall) : 0;
+  const meanLatency = run.latencySum / run.frames;
+  const fps = run.frames / (run.durationMs / 1000);
+  const meanMem = run.memSamples.length ? run.memSamples.reduce((a,b)=>a+b,0)/run.memSamples.length : null;
+
+  addResultRow({
+    lighting: run.lighting + " lux",
+    pose: run.pose + "°",
+    device: run.device,
+    precision: (precision * 100).toFixed(1) + "%",
+    recall: (recall * 100).toFixed(1) + "%",
+    f1: (f1 * 100).toFixed(1) + "%",
+    latency: meanLatency.toFixed(1),
+    fps: fps.toFixed(1),
+    memory: meanMem !== null ? meanMem.toFixed(1) : "N/A",
+  });
+
+  if (autoState.active) {
+    autoState.index++;
+    $("runStatus").textContent = "Skenario selesai — lanjut mode otomatis...";
+    setTimeout(runNextAutoStep, 400);
+  }
+}
+
+const rows = [];
+function addResultRow(r) {
+  rows.push(r);
+  renderTable();
+}
+
+function renderTable() {
+  const tbody = $("resultsBody");
+  tbody.innerHTML = "";
+  rows.forEach((r, i) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.lighting}</td><td>${r.pose}</td><td>${r.device}</td>
+      <td>${r.precision}</td><td>${r.recall}</td><td>${r.f1}</td>
+      <td>${r.latency}</td><td>${r.fps}</td><td>${r.memory}</td>
+      <td><button data-i="${i}" class="btn-outline delBtn" style="padding:3px 8px;">✕</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  document.querySelectorAll(".delBtn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const idx = Number(e.target.dataset.i);
+      rows.splice(idx, 1);
+      renderTable();
+    });
+  });
+}
+
+$("btnClear").addEventListener("click", () => {
+  if (confirm("Kosongkan semua hasil yang sudah terekam?")) {
+    rows.length = 0;
+    renderTable();
+  }
+});
+
+function buildCsvText() {
+  const header = ["Lighting (lux)","Pose Angle","Device Tier","Precision","Recall","F1-Score","Latency (ms)","FPS","Memory (MB)"];
+  const lines = [header.join(",")];
+  rows.forEach(r => {
+    lines.push([r.lighting, r.pose, r.device, r.precision, r.recall, r.f1, r.latency, r.fps, r.memory].join(","));
+  });
+  return lines.join("\n");
+}
+
+const CSV_FILENAME = "ICEMIES2026_hasil_36skenario.csv";
+
+function downloadCsvFile() {
+  const blob = new Blob([buildCsvText()], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = CSV_FILENAME;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+$("btnExportCsv").addEventListener("click", () => {
+  if (rows.length === 0) { alert("Belum ada hasil untuk diexport."); return; }
+  downloadCsvFile();
+});
+
+$("btnSendWa").addEventListener("click", async () => {
+  if (rows.length === 0) { alert("Belum ada hasil untuk dikirim."); return; }
+
+  const waStatus = $("waStatus");
+  const rawNumber = $("waNumber").value.trim().replace(/[^0-9]/g, "");
+  const csvText = buildCsvText();
+  const summary = `ICEMIES 2026 - Hasil Benchmark Deteksi Wajah\n${rows.length} skenario terekam.\n(File CSV terlampir / lihat unduhan terbaru)`;
+
+  // Coba kirim langsung sebagai file terlampir (butuh HTTPS + Web Share API level 2,
+  // biasanya berjalan di Chrome/Android; sebagian besar browser desktop tidak mendukung ini).
+  try {
+    const file = new File([csvText], CSV_FILENAME, { type: "text/csv" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: "Hasil Benchmark ICEMIES 2026",
+        text: summary,
+      });
+      waStatus.textContent = "Dibagikan lewat menu Share — pilih WhatsApp pada daftar aplikasi.";
+      waStatus.classList.add("active");
+      return;
+    }
+  } catch (e) {
+    if (e.name === "AbortError") { return; } // user cancelled the share sheet
+    // fall through to fallback below
+  }
+
+  // Fallback (umumnya di desktop): unduh CSV dulu, lalu buka chat WhatsApp
+  // dengan teks siap kirim. File CSV yang baru diunduh tinggal dilampirkan manual.
+  downloadCsvFile();
+  const text = encodeURIComponent(
+    `${summary}\n\nCatatan: file CSV baru saja terunduh di perangkat ini (${CSV_FILENAME}). Silakan lampirkan file tersebut secara manual pada chat WhatsApp ini.`
+  );
+  const base = rawNumber ? `https://wa.me/${rawNumber}` : `https://wa.me/`;
+  window.open(`${base}?text=${text}`, "_blank");
+  waStatus.textContent = "CSV terunduh & WhatsApp dibuka — lampirkan file CSV secara manual pada chat.";
+  waStatus.classList.add("active");
+});
+</script>
+</body>
+</html>
